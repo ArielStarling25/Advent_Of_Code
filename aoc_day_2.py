@@ -13,7 +13,7 @@ class Part1:
             raise KeyError("Forgor input value")
         self.eg_input = eg_input.split(",")
         self.input = self.raw_input.split(",")
-        self.input = self.eg_input
+        #self.input = self.eg_input
         self.invalids = []
     
     def solve(self):
@@ -40,7 +40,7 @@ class Part2:
             raise KeyError("Forgor input value")
         self.eg_input = eg_input.split(",")
         self.input = self.raw_input.split(",")
-        self.input = self.eg_input
+        #self.input = self.eg_input
         self.invalids = set()
         
     # def solve(self):
@@ -72,10 +72,8 @@ class Part2:
                 for base_num in range(base_start, base_end + 1):
                     s_base = str(base_num)
                     repetitions = 2 # Base case for number of repetitions
-                    while True:
-                        candidate_str = s_base * repetitions
-                        if len(candidate_str) > max_len:
-                            break
+                    candidate_str = s_base * repetitions
+                    while len(candidate_str) <= max_len:
                         candidate_int = int(candidate_str)
                         if candidate_int > end_n:
                             break
@@ -83,6 +81,7 @@ class Part2:
                             #print("INVALID: ", candidate_int)
                             self.invalids.add(candidate_int)
                         repetitions += 1
+                        candidate_str = s_base * repetitions
         return sum(self.invalids)
 
     def __str__(self):
