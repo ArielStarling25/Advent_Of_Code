@@ -3,7 +3,7 @@
 # 🎄 Advent of Code 2025 🎄
 
 ![Language](https://img.shields.io/badge/Language-Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Stars](https://img.shields.io/badge/Stars-01020%2F%2024-yellow?style=for-the-badge)
+![Stars](https://img.shields.io/badge/Stars-12%2F%2024-yellow?style=for-the-badge)
 
 <p align="center">
     My solutions for the <a href="https://adventofcode.com/2025">Advent of Code 2025</a> challenges. <br>
