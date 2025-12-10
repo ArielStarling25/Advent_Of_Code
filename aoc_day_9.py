@@ -1,6 +1,7 @@
 import time, os, threading, copy, math, pprint, csv
 from AOC_Loader import AOCLoader
 from collections import deque
+from Sparse_Grid import SparseGrid
 
 YEAR = 2025
 DAY = 9
@@ -58,7 +59,7 @@ class Part2:
         self.input = self.eg_input
         self.coordinates = {}
         self.coordinate_sizes = []
-        self.grid = []
+        self.grid = SparseGrid(default_val='.')
         self.range_x = 0
         self.range_y = 0
         for item in self.input:
@@ -73,9 +74,9 @@ class Part2:
         # print(self.coordinates)
         # print(self.range_x, self.range_y)
         print("INFO - INITIALIZING...")
-        for i in range(self.range_y + 2):
-            self.grid.append(['.' for j in range(self.range_x + 3)])
-            #print(f"ROW:[{i}]")
+        self.grid[self.range_y + 1][self.range_x + 2] = 'o'
+        # for i in range(self.range_y + 2):
+        #     self.grid.append(['.' for j in range(self.range_x + 3)])
         for key, value in self.coordinates.items():
             self.grid[key[1]][key[0]] = '#'
         #self.print_grid(self.grid)
@@ -84,15 +85,13 @@ class Part2:
         root = next(iter(self.coordinates))
         print("INFO - TRAVERSING TO FIND LOOP...")
         adj_list, guh = self.traverse_seen_directions(copy.deepcopy(self.coordinates), root[0], root[1], True)
-        pprint.pprint(adj_list, sort_dicts=False)
+        #pprint.pprint(adj_list, sort_dicts=False)
         print("INFO - DRAWING MAP OUTLINE...")
         outline_grid = self.draw_on_grid_list(self.grid, adj_list)
         self.print_grid(outline_grid)
         print("INFO - FILLING MAP OUTLINE...")
-        filled_grid = self.fill_grid_inside(outline_grid, adj_list)
-        #filled_grid = self.fill_grid_inside_2(outline_grid, adj_list)
-        #filled_grid = self.fill_shape_2(outline_grid, adj_list)
-        #filled_grid = self.fill_complex_polygon(outline_grid, adj_list)
+        #filled_grid = self.fill_grid_inside(outline_grid, adj_list)
+        filled_grid = self.fill_poly_grid(outline_grid)
         self.print_grid(filled_grid)
         print("INFO - COUNTING 'X' in MARKED AREA...")
         count = self.find_largest_area(filled_grid)
@@ -120,7 +119,7 @@ class Part2:
                 if 0 <= y < len(filled_grid) and 0 <= x < len(filled_grid[0]):
                     if filled_grid[y][x] in ['X','#']:
                         count += 1  
-                    if filled_grid[y][x] == '.':
+                    if filled_grid[y][x] in ['.', 'o']:
                         return 0
         #self.print_grid(self.draw_debug_area(copy.deepcopy(filled_grid), x1, y1, x2, y2))
         return count
@@ -130,7 +129,6 @@ class Part2:
         looped = False
         if next(iter(adj_list)) == (x,y) and not initial:
             return adj_list, True
-        #print("ADJLIST", adj_list, "ADJLIST")
         for key, value in adj_list.items():
             if len(value) > 0 and not next(iter(adj_list)) == (key[0],key[1]):
                 continue
@@ -192,145 +190,8 @@ class Part2:
                         mark(x, start_y)
         return grid_data
     
-    def fill_complex_polygon(self, grid, connections):
-        rows = len(grid)
-        cols = len(grid[0])
-        
-        # 1. Draw Outline & Identify Vertical Walls
-        # We need to know EXACTLY which '#' pixels are vertical boundaries 
-        # to correctly toggle the Inside/Outside state.
-        vertical_walls = set() # Stores (x, y)
-        
-        for start, targets in connections.items():
-            sx, sy = start
-            for tx, ty in targets:
-                # Draw on grid
-                if sx == tx: # Vertical
-                    y1, y2 = sorted((sy, ty))
-                    for y in range(y1, y2 + 1):
-                        grid[y][sx] = '#'
-                    # Mark only the segment as a vertical wall (exclude bottom corner for Even-Odd rule)
-                    # This prevents double-counting corners like 'L' or 'U' shapes
-                    for y in range(y1, y2): 
-                        vertical_walls.add((sx, y))
-                        
-                elif sy == ty: # Horizontal
-                    x1, x2 = sorted((sx, tx))
-                    for x in range(x1, x2 + 1):
-                        grid[sy][x] = '#'
-
-        # 2. Scan Every Row
-        for y in range(rows):
-            inside = False
-            for x in range(cols):
-                # A. Check for "Switch" (Vertical Wall)
-                # If we hit a vertical wall, we are crossing a boundary.
-                if (x, y) in vertical_walls:
-                    inside = not inside
-                
-                # B. If we are mathematically 'Inside' but the tile is empty...
-                # This means we found a NEW pocket (like the Right Bank)
-                if inside and grid[y][x] == '.':
-                    self._run_flood_fill(grid, x, y)
-                    
-        return grid
-
-    def _run_flood_fill(self, grid, start_x, start_y):
-        """Standard BFS to fill a connected component."""
-        rows = len(grid)
-        cols = len(grid[0])
-        queue = deque([(start_x, start_y)])
-        grid[start_y][start_x] = 'X' # Mark immediately
-        
-        while queue:
-            cx, cy = queue.popleft()
-            
-            # Check 4 neighbors
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nx, ny = cx + dx, cy + dy
-                
-                if 0 <= ny < rows and 0 <= nx < cols:
-                    if grid[ny][nx] == '.':
-                        grid[ny][nx] = 'X'
-                        queue.append((nx, ny))
-    
-    def fill_shape_2(self, grid, connections):
-        # 1. Ensure Outline is Drawn (so we have walls to stop the flood)
-        # We also collect vertical walls for the next step.
-        vertical_walls = [] # List of tuples: (x, y_min, y_max)
-        
-        for start, targets in connections.items():
-            sx, sy = start
-            for tx, ty in targets:
-                # Draw the line on the grid
-                if sx == tx: # Vertical
-                    y1, y2 = sorted((sy, ty))
-                    vertical_walls.append((sx, y1, y2))
-                    for y in range(y1, y2 + 1):
-                        grid[y][sx] = '#'
-                elif sy == ty: # Horizontal
-                    x1, x2 = sorted((sx, tx))
-                    for x in range(x1, x2 + 1):
-                        grid[sy][x] = '#'
-
-        # 2. Find a "Seed" Point inside the polygon
-        # Algorithm: Scan rows. The first vertical wall we hit from the left 
-        # is ALWAYS a transition from Outside -> Inside.
-        seed_point = None
-        
-        # Sort walls by X coordinate so we always find the left-most one first
-        vertical_walls.sort(key=lambda w: w[0])
-        
-        # Try finding a valid seed in the middle of the shape first (safer)
-        rows = len(grid)
-        cols = len(grid[0])
-        
-        for y in range(rows):
-            if seed_point: break
-            
-            # Find the first vertical wall that intersects this row 'y'
-            for vx, vy_min, vy_max in vertical_walls:
-                # Check if this wall covers current y (excluding endpoints to avoid corners)
-                if vy_min < y < vy_max:
-                    # We found the left-most wall. 
-                    # The point immediately to its RIGHT (vx + 1) should be inside.
-                    
-                    # Verify it's not immediately hitting another wall (thick walls)
-                    candidate_x = vx + 1
-                    while candidate_x < cols and grid[y][candidate_x] == '#':
-                        candidate_x += 1
-                    
-                    # If we found an empty spot before hitting the next wall segment
-                    if candidate_x < cols and grid[y][candidate_x] == '.':
-                        seed_point = (candidate_x, y)
-                        print(f"DEBUG: Found interior seed at {seed_point}")
-                        break
-
-        if not seed_point:
-            print("ERROR: Could not find a valid interior starting point.")
-            return grid
-
-        # 3. BFS Flood Fill from the Seed
-        queue = deque([seed_point])
-        visited = set([seed_point])
-        grid[seed_point[1]][seed_point[0]] = 'X' # Mark start
-
-        while queue:
-            cx, cy = queue.popleft()
-            
-            # Check 4 neighbors
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nx, ny = cx + dx, cy + dy
-                
-                if 0 <= ny < rows and 0 <= nx < cols:
-                    if (nx, ny) not in visited:
-                        # If it is empty space ('.'), fill it
-                        if grid[ny][nx] == '.':
-                            grid[ny][nx] = 'X'
-                            visited.add((nx, ny))
-                            queue.append((nx, ny))
-                        # Note: We stop at '#' (walls) or 'X' (already filled)
-        
+    def fill_poly_grid(self, grid, adjacency_list=None):
+        pass
         return grid
     
     def fill_grid_inside(self, grid_data, connections):
